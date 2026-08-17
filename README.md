@@ -1,0 +1,217 @@
+# Travian Farmbot
+
+Autonómny bot pre Travian s vlastným **časovačom** — povieš mu, čo a kedy má robiť,
+a on to robí sám. Beží na Windows, inštalácia je na dva kliky, priebeh vidíš
+v jednoduchom webovom dashboarde.
+
+```
+┌─ config.yaml ─────────┐     ┌─ plánovač ──────┐     ┌─ prehliadač ────┐
+│ Farm listy: každých   │ ──> │ fronta úloh     │ ──> │ Chromium        │
+│   22m (±7m)           │     │ (jedna po       │     │ (Playwright)    │
+│ Hrdina: každých 40m   │     │  druhej)        │     │ prihlásený,     │
+│ Stavanie: cron        │     │ nočný režim     │     │ profil sa drží  │
+└───────────────────────┘     └─────────────────┘     └─────────────────┘
+                                      │
+                              http://127.0.0.1:8777  ← dashboard
+```
+
+> [!WARNING]
+> **Botovanie porušuje podmienky používania Travianu** a hrozí zaň zablokovanie
+> účtu. Projekt je určený na štúdium automatizácie prehliadača a používaš ho
+> na vlastné riziko a zodpovednosť.
+
+---
+
+## Čo bot vie
+
+| Typ úlohy | Čo robí |
+|---|---|
+| `farmlist` | Odošle farm listy zo zhromaždiska — všetky naraz alebo len vybrané podľa názvu |
+| `adventure` | Pošle hrdinu na dobrodružstvo, ak má dosť zdravia |
+| `build` | Vylepší budovu/políčko z fronty (prvé, na ktoré sú suroviny) |
+| `train` | Natrénuje jednotky v kasárňach / stajni / dielni |
+| `keepalive` | Načíta pár stránok, aby session nevypadla a aktivita nevyzerala strojovo |
+| `screenshot` | Ladiaca úloha — uloží screenshot + HTML stránky do `data/debug` |
+
+Ďalšie vlastnosti:
+
+- **Časovač** — interval (`every: 20m`), presný čas (`at: ["07:15","19:40"]`) alebo cron (`cron: "*/30 6-23 * * *"`)
+- **Náhodný rozptyl** (jitter) na každom intervale + náhodné pauzy medzi klikmi
+- **Nočný režim** — v zadanom okne sa úlohy preskakujú (okrem tých, ktoré to majú povolené)
+- **Dashboard** na `127.0.0.1:8777` — stav, ďalší beh, posledný výsledok, log, ručné spustenie, pauza
+- **Automatická pauza** po N chybách za sebou + voliteľné **Telegram** upozornenia
+- **Selektory v configu** — keď hra zmení vzhľad, prepíšeš selektor v `config.yaml`, nie kód
+
+---
+
+## Inštalácia (Windows)
+
+Potrebuješ [Python 3.10+](https://www.python.org/downloads/) — pri inštalácii
+**zaškrtni „Add python.exe to PATH"**.
+
+1. Stiahni projekt (zelené tlačidlo **Code → Download ZIP**) a rozbaľ ho.
+2. Spusti **`install.bat`** — vytvorí virtuálne prostredie, doinštaluje knižnice,
+   stiahne Chromium a pripraví `config.yaml`.
+3. V `config.yaml` vyplň server, meno a heslo (alebo heslo do `.env`).
+4. Spusti **`login.bat`** a prihlás sa raz ručne — session sa uloží do profilu
+   prehliadača, takže bot sa už prihlasovať nemusí (a preklikáš aj prípadné
+   cookie okná či dialógy hry).
+5. Spusti **`start.bat`**. Hotovo — dashboard nájdeš na <http://127.0.0.1:8777>.
+
+| Súbor | Na čo je |
+|---|---|
+| `install.bat` | jednorazová inštalácia |
+| `start.bat` | spustenie bota podľa časovača |
+| `login.bat` | otvorí prehliadač na ručné prihlásenie |
+| `test.bat` | vypíše úlohy a spustí jednu na skúšku |
+
+---
+
+## Nastavenie časovača
+
+Celý plán je v `config.yaml` v sekcii `tasks`. Každá úloha vyzerá takto:
+
+```yaml
+tasks:
+  - name: "Farm listy"        # ľubovoľný unikátny názov
+    type: farmlist            # typ úlohy z tabuľky vyššie
+    enabled: true
+    schedule:
+      every: "22m"            # každých 22 minút…
+      jitter: "7m"            # …±7 minút náhodne
+    options:
+      run_on_start: true      # spusti hneď po štarte bota
+      lists: ["all"]          # alebo ["Sever", "Juh"] podľa názvov v hre
+```
+
+**Tri spôsoby plánovania** (v jednej úlohe vždy práve jeden):
+
+```yaml
+schedule: {every: "20m", jitter: "5m"}     # opakovane
+schedule: {at: ["07:15", "12:00", "19:40"]}  # každý deň o presnom čase
+schedule: {cron: "*/30 6-23 * * *"}        # cron: min hod deň mesiac deň-v-týždni
+```
+
+Voliteľne `start_delay: "2m"` (prvý beh až o 2 minúty po štarte) a
+`run_in_quiet_hours: true` (úloha beží aj v nočnom režime).
+
+**Nočný režim** sa nastavuje raz pre celého bota:
+
+```yaml
+behavior:
+  quiet_hours:
+    enabled: true
+    from: "23:40"
+    to: "06:20"
+```
+
+### Príklady úloh
+
+```yaml
+  # Raiduj len dva konkrétne farm listy, každú polhodinu
+  - name: "Farmenie sever"
+    type: farmlist
+    schedule: {every: "30m", jitter: "8m"}
+    options:
+      village: "Hlavná dedina"
+      lists: ["Sever", "Blizke dediny"]
+
+  # Stavaj, keď sú suroviny — skúša sa zhora nadol, postaví sa prvé možné
+  - name: "Stavanie"
+    type: build
+    schedule: {every: "15m"}
+    options:
+      upgrades_per_run: 1
+      queue:
+        - {slot: 1}
+        - {slot: 5}
+        - {slot: 26, max_level: 20}
+
+  # Trénuj vojakov každé tri hodiny
+  - name: "Trening"
+    type: train
+    schedule: {cron: "0 */3 * * *"}
+    options:
+      slot: 19          # číslo políčka s kasárňami
+      gid: 19           # 19 kasárne, 20 stajňa, 21 dielňa
+      units: {t1: max}
+```
+
+---
+
+## Príkazový riadok
+
+`start.bat` posiela argumenty ďalej do `run.py`, takže funguje aj:
+
+```bash
+start.bat --list                 # vypíše úlohy a ich plán
+start.bat --once "Farm listy"    # spustí jednu úlohu a skončí
+start.bat --headless             # bez viditeľného okna prehliadača
+start.bat --no-dashboard         # bez webového dashboardu
+start.bat --check                # len overí konfiguráciu
+```
+
+---
+
+## Keď bot prestane niečo nachádzať
+
+Travian občas zmení HTML a bot napíše napr. *„Nenašiel som stránku s farm listami"*.
+Vtedy:
+
+1. Zapni ladiacu úlohu `screenshot` (alebo nechaj `screenshot_on_error: true`) —
+   do `data/debug` sa uloží obrázok aj HTML stránky.
+2. V HTML nájdi správnu triedu tlačidla.
+3. Dopíš ju do `config.yaml`, kód sa meniť nemusí:
+
+```yaml
+selectors:
+  farmlist_start_all:
+    - "button.nova-trieda-tlacidla"
+```
+
+Zoznam všetkých kľúčov je v [`travianbot/selectors.py`](travianbot/selectors.py).
+Tvoje hodnoty sa skúšajú ako prvé, pôvodné zostávajú ako záloha.
+
+---
+
+## Automatické spúšťanie po štarte Windows
+
+Win + R → `shell:startup` → do priečinka daj zástupcu na `start.bat`.
+Alebo cez Plánovač úloh (Task Scheduler): *Vytvoriť úlohu → Spúšťač: Pri prihlásení
+→ Akcia: spustiť `start.bat`*, v poli „Začať v" nastav priečinok bota.
+
+---
+
+## Štruktúra projektu
+
+```
+travian-farmbot/
+├── run.py                  vstupný bod / CLI
+├── config.example.yaml     vzor konfigurácie (skopíruje sa na config.yaml)
+├── install.bat start.bat login.bat test.bat
+└── travianbot/
+    ├── config.py           načítanie a validácia configu
+    ├── browser.py          Playwright session, prihlásenie, hľadanie prvkov
+    ├── selectors.py        všetky CSS selektory a URL na jednom mieste
+    ├── scheduler.py        plánovač + fronta + vykonávanie úloh
+    ├── state.py            stav pre dashboard
+    ├── dashboard.py        webový dashboard (Flask)
+    ├── notify.py           Telegram upozornenia
+    └── tasks/              jednotlivé typy úloh
+```
+
+Nový typ úlohy = jeden súbor v `travianbot/tasks/` s triedou označenou
+`@register`, `type_name = "nieco"` a metódou `execute(session)`.
+
+---
+
+## Bezpečnosť
+
+- `config.yaml` a `.env` sú v `.gitignore` — heslo sa nikdy nedostane do gitu.
+- Dashboard počúva len na `127.0.0.1` a **nemá heslo** — nevystavuj ho do siete.
+- Profil prehliadača v `data/profile` obsahuje prihlasovacie cookies — je to
+  rovnako citlivé ako heslo.
+
+## Licencia
+
+MIT — pozri [LICENSE](LICENSE).

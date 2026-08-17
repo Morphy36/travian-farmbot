@@ -1,0 +1,6 @@
+playwright==1.49.0
+APScheduler==3.10.4
+PyYAML==6.0.2
+python-dotenv==1.0.1
+Flask==3.0.3
+requests==2.32.3

@@ -1,0 +1,158 @@
+# =====================================================================
+#  Travian Farmbot - konfiguracia
+#  Skopiruj tento subor ako  config.yaml  a uprav si ho.
+#  (config.yaml sa NIKDY necommituje do gitu - je v .gitignore)
+# =====================================================================
+
+account:
+  # Adresa TVOJHO servera, nie travian.com lobby.
+  # Priklad: https://ts5.x1.europe.travian.com
+  server_url: "https://ts1.x1.europe.travian.com"
+  username: "moje-meno"
+  # Heslo mozes napisat sem, alebo (lepsie) do suboru .env ako
+  #   TRAVIAN_PASSWORD=tajneheslo
+  # a tu nechat prazdne, pripadne pouzit ${TRAVIAN_PASSWORD}
+  password: ""
+
+browser:
+  headless: false          # true = prehliadac bezi neviditelne na pozadi
+  profile_dir: "data/profile"   # tu sa drzia cookies, takze prihlasenie vydrzi
+  slow_mo_ms: 0            # umele spomalenie kazdej akcie (napr. 100)
+  locale: "sk-SK"
+  timeout_ms: 30000
+  viewport:
+    width: 1440
+    height: 900
+
+behavior:
+  # Nahodna pauza (v sekundach) medzi jednotlivymi klikmi.
+  action_delay: [0.7, 2.4]
+  # Rozptyl casovaca v %, aby bot nechodil presne na sekundu.
+  default_jitter_pct: 20
+  # Nocny rezim - v tomto okne sa ulohy preskakuju
+  # (okrem tych, co maju run_in_quiet_hours: true).
+  quiet_hours:
+    enabled: true
+    from: "23:40"
+    to: "06:20"
+  # Po tolkoto chybach po sebe sa bot sam pozastavi.
+  max_consecutive_failures: 5
+  screenshot_on_error: true
+
+dashboard:
+  enabled: true
+  host: "127.0.0.1"        # nechaj localhost - dashboard nema heslo!
+  port: 8777
+
+notifications:
+  telegram:
+    enabled: false
+    bot_token: ""
+    chat_id: ""
+    notify_on: ["error"]   # ["error"], ["error", "success"] alebo ["all"]
+
+logging:
+  level: "INFO"            # DEBUG ked hladas problem
+  file: "logs/bot.log"
+
+# =====================================================================
+#  CASOVAC - co a kedy sa ma robit
+# ---------------------------------------------------------------------
+#  Kazda uloha ma:
+#    name     - lubovolny nazov (musi byt unikatny)
+#    type     - farmlist | adventure | build | train | keepalive | screenshot
+#    enabled  - true/false
+#    schedule - PRAVE JEDNU z moznosti:
+#         every: "20m"          ... opakovane kazdych 20 minut
+#         cron:  "*/30 6-23 * * *" ... cron vyraz (min hod den mesiac denvtyzdni)
+#         at:    ["07:15", "19:40"] ... kazdy den o presnom case
+#       volitelne:
+#         jitter: "5m"          ... nahodny rozptyl (default 20 % z 'every')
+#         start_delay: "2m"     ... prve spustenie az o 2 minuty po starte
+#    run_in_quiet_hours - true ak ma bezat aj v nocnom rezime
+#    options  - nastavenia konkretneho typu ulohy
+# =====================================================================
+
+tasks:
+  - name: "Farm listy"
+    type: farmlist
+    enabled: true
+    schedule:
+      every: "22m"
+      jitter: "7m"
+    options:
+      run_on_start: true     # spustit hned po starte bota
+      lists: ["all"]         # alebo napr. ["Sever", "Juh"] podla nazvov v hre
+      # village: "Hlavna dedina"   # nepovinne - inak sa pouzije aktualna
+
+  - name: "Nocne farmenie"
+    type: farmlist
+    enabled: false           # zapni, ak chces raidovat aj v noci
+    schedule:
+      every: "48m"
+      jitter: "20m"
+    run_in_quiet_hours: true
+    options:
+      lists: ["all"]
+
+  - name: "Hrdina na dobrodruzstvo"
+    type: adventure
+    enabled: true
+    schedule:
+      every: "40m"
+    options:
+      min_health: 35         # nizsie zdravie = hrdina zostava doma
+      require_health_check: true
+
+  - name: "Stavanie"
+    type: build
+    enabled: false
+    schedule:
+      every: "15m"
+    options:
+      # village: 1
+      upgrades_per_run: 1
+      queue:                 # skusa sa zhora nadol, prve dostupne sa postavi
+        - {slot: 1}                   # policko c. 1 (drevo/hlina/zelezo/obilie)
+        - {slot: 5}
+        - {slot: 26, max_level: 20}   # hlavna budova
+        - {slot: 19, gid: 19}         # kasarne
+
+  - name: "Trening jednotiek"
+    type: train
+    enabled: false
+    schedule:
+      cron: "0 */3 * * *"    # kazde 3 hodiny
+    options:
+      slot: 19               # cislo policka s kasarnami
+      gid: 19                # 19 kasarne, 20 staj, 21 dielna
+      units:
+        t1: max              # alebo napr.  t1: 20
+
+  - name: "Udrzanie session"
+    type: keepalive
+    enabled: true
+    schedule:
+      every: "35m"
+      jitter: "12m"
+    options: {}
+
+  # Ladenie: ulozi screenshot + HTML do data/debug, ked hra zmeni vzhlad
+  # a bot prestane nieco nachadzat.
+  - name: "Debug screenshot"
+    type: screenshot
+    enabled: false
+    schedule:
+      at: ["12:00"]
+    options:
+      path: "/build.php?id=39&gid=16&tt=99"
+      label: "farmlist"
+
+# =====================================================================
+#  Volitelne: prepisanie selektorov, ak hra zmeni HTML.
+#  Kazdy kluc je zoznam - skusaju sa v poradi, tvoje idu prve.
+#  Zoznam vsetkych klucov: travianbot/selectors.py
+# =====================================================================
+# selectors:
+#   farmlist_start_all:
+#     - "button.newStartAllButton"
