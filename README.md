@@ -44,19 +44,67 @@ v jednoduchom webovom dashboarde.
 
 ---
 
-## Inštalácia (Windows)
+## Inštalácia na Windows — celý postup od nuly
 
-Potrebuješ [Python 3.10+](https://www.python.org/downloads/) — pri inštalácii
-**zaškrtni „Add python.exe to PATH"**.
+### 1. Nainštaluj Python
 
-1. Stiahni projekt (zelené tlačidlo **Code → Download ZIP**) a rozbaľ ho.
-2. Spusti **`install.bat`** — vytvorí virtuálne prostredie, doinštaluje knižnice,
-   stiahne Chromium a pripraví `config.yaml`.
-3. V `config.yaml` vyplň server, meno a heslo (alebo heslo do `.env`).
-4. Spusti **`login.bat`** a prihlás sa raz ručne — session sa uloží do profilu
-   prehliadača, takže bot sa už prihlasovať nemusí (a preklikáš aj prípadné
-   cookie okná či dialógy hry).
-5. Spusti **`start.bat`**. Hotovo — dashboard nájdeš na <http://127.0.0.1:8777>.
+**Stiahni:** [python-3.12.10-amd64.exe](https://www.python.org/ftp/python/3.12.10/python-3.12.10-amd64.exe)
+(64-bit Windows inštalátor; iné verzie na [python.org/downloads/windows](https://www.python.org/downloads/windows/))
+
+V prvom okne inštalátora **zaškrtni dole „Add python.exe to PATH"** a potom
+*Install Now*. Bez tejto fajky `install.bat` Python nenájde.
+
+Overenie — otvor `cmd` (Win + R → `cmd`) a napíš `python --version`.
+Musí vypísať číslo verzie, nie chybu.
+
+### 2. Stiahni bota
+
+**Stiahni ZIP:** [travian-farmbot-main.zip](https://github.com/Morphy36/travian-farmbot/archive/refs/heads/main.zip)
+
+Rozbaľ ho (pravý klik → *Extrahovať všetko*) do jednoduchej cesty, napr. **`C:\travian-farmbot`**.
+
+V priečinku musia byť priamo `install.bat`, `run.py`, `config.example.yaml` —
+ZIP z GitHubu vytvára obal `travian-farmbot-main`, takže rozbaľ jeho **obsah**.
+
+> Nedávaj bota do `Program Files` (potrebuje práva na zápis) ani do priečinka
+> synchronizovaného OneDrive-om (bije sa to s profilom prehliadača).
+
+### 3. Spusti install.bat
+
+Dvojklik na **`install.bat`**. Vytvorí virtuálne prostredie, doinštaluje knižnice,
+stiahne Chromium (~130 MB) a pripraví `config.yaml`. Trvá to pár minút.
+
+Ak vyskočí modré okno *„Windows chránil váš počítač"* → **Ďalšie informácie →
+Spustiť tak či tak**. To je bežné pri každom `.bat` stiahnutom z internetu.
+
+### 4. Vyplň config.yaml
+
+Inštalátor sa na konci spýta, či ho otvoriť. Vyplň aspoň:
+
+```yaml
+account:
+  server_url: "https://tsX.xN.europe.travian.com"   # adresa TVOJHO servera
+  username: "tvoje-meno"
+  password: "tvoje-heslo"
+```
+
+`server_url` je to, čo máš v adresnom riadku počas hrania, bez `/dorf1.php` na
+konci — nie `travian.com`. Zvyšok (časovač) môžeš nechať tak, funguje hneď.
+
+### 5. Prihlás sa raz ručne
+
+Dvojklik na **`login.bat`** → otvorí sa prehliadač → prihlás sa do hry a odklikaj
+prípadné cookie okná a dialógy hry → vráť sa do čierneho okna a stlač Enter.
+
+Stačí raz. Session sa uloží do `data\profile`, bot sa už prihlasovať nemusí.
+
+### 6. Skúška a spustenie
+
+Najprv **`test.bat`** → vypíše úlohy → napíš `Farm listy` a Enter. Spustí len tú
+jednu úlohu, takže hneď vidíš, či bot na tvojom serveri farm listy nájde.
+
+Potom **`start.bat`** — čierne okno nechaj otvorené, pokiaľ beží, beží bot
+(ukončenie `Ctrl+C`). Dashboard: **<http://127.0.0.1:8777>**
 
 | Súbor | Na čo je |
 |---|---|
